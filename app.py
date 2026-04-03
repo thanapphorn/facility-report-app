@@ -1,28 +1,46 @@
 import streamlit as st
+import gspread
 import pandas as pd
+from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
-import os
+import uuid
 
-DATA_FILE = "data.csv"
+# =========================
+# CONNECT GOOGLE SHEET
+# =========================
+
+scope = [
+"https://spreadsheets.google.com/feeds",
+"https://www.googleapis.com/auth/drive"
+]
+
+creds = ServiceAccountCredentials.from_json_keyfile_name(
+"credentials.json", scope
+)
+
+client = gspread.authorize(creds)
+
+sheet = client.open("facility-report").sheet1
+
 
 st.set_page_config(page_title="ระบบแจ้งปัญหา")
 
 menu = st.sidebar.selectbox(
-    "เมนู",
-    ["แจ้งปัญหา","ติดตามงาน","Admin"]
+"เมนู",
+["แจ้งปัญหา","ติดตามงาน","Admin"]
 )
 
-# ======================
-# แจ้งปัญหา
-# ======================
+# =========================
+# PAGE 1 : REPORT
+# =========================
 
 if menu == "แจ้งปัญหา":
 
     st.title("📝 แจ้งปัญหา")
 
     category = st.selectbox(
-        "หมวดหมู่",
-        ["ไฟฟ้า","ประปา","ห้องน้ำ","แอร์","เฟอร์นิเจอร์","อื่นๆ"]
+    "หมวดหมู่ปัญหา",
+    ["ไฟฟ้า","ประปา","ห้องน้ำ","แอร์","เฟอร์นิเจอร์","อื่นๆ"]
     )
 
     name = st.text_input("ชื่อ")
@@ -30,47 +48,34 @@ if menu == "แจ้งปัญหา":
     location = st.text_input("สถานที่")
     description = st.text_area("รายละเอียด")
 
-    image = st.file_uploader("แนบรูป", type=["jpg","png","jpeg"])
+    image = st.file_uploader("📸 แนบรูป",type=["jpg","png","jpeg"])
 
     if st.button("ส่งรายงาน"):
 
-        ticket = "RTP" + str(int(datetime.now().timestamp()))
+        ticket = "RTP-" + str(uuid.uuid4())[:6]
 
-        if image:
-            os.makedirs("uploads",exist_ok=True)
-            path = f"uploads/{image.name}"
-            with open(path,"wb") as f:
-                f.write(image.getbuffer())
-        else:
-            path = ""
+        now = datetime.now()
+        date = now.strftime("%Y-%m-%d")
+        time = now.strftime("%H:%M")
 
-        data = {
-            "ticket":[ticket],
-            "category":[category],
-            "name":[name],
-            "phone":[phone],
-            "location":[location],
-            "description":[description],
-            "image":[path],
-            "status":["pending"],
-            "date":[datetime.now()]
-        }
-
-        df_new = pd.DataFrame(data)
-
-        if os.path.exists(DATA_FILE):
-            df = pd.read_csv(DATA_FILE)
-            df = pd.concat([df,df_new])
-        else:
-            df = df_new
-
-        df.to_csv(DATA_FILE,index=False)
+        sheet.append_row([
+        ticket,
+        category,
+        name,
+        phone,
+        location,
+        description,
+        "",
+        "pending",
+        date,
+        time
+        ])
 
         st.success(f"ส่งสำเร็จ Ticket: {ticket}")
 
-# ======================
-# ติดตามงาน
-# ======================
+# =========================
+# PAGE 2 : TRACK
+# =========================
 
 elif menu == "ติดตามงาน":
 
@@ -78,22 +83,24 @@ elif menu == "ติดตามงาน":
 
     ticket = st.text_input("กรอกรหัส Ticket")
 
-    if os.path.exists(DATA_FILE):
+    data = sheet.get_all_records()
 
-        df = pd.read_csv(DATA_FILE)
+    df = pd.DataFrame(data)
 
-        result = df[df["ticket"] == ticket]
+    result = df[df["ticket"] == ticket]
 
-        if len(result)>0:
+    if len(result)>0:
 
-            st.write(result)
+        st.subheader("สถานะงาน")
 
-        else:
-            st.warning("ไม่พบข้อมูล")
+        st.write(result)
 
-# ======================
-# ADMIN
-# ======================
+    elif ticket != "":
+        st.warning("ไม่พบ Ticket")
+
+# =========================
+# PAGE 3 : ADMIN
+# =========================
 
 elif menu == "Admin":
 
@@ -103,23 +110,28 @@ elif menu == "Admin":
 
     if password == "admin123":
 
-        if os.path.exists(DATA_FILE):
+        data = sheet.get_all_records()
 
-            df = pd.read_csv(DATA_FILE)
+        df = pd.DataFrame(data)
 
-            for i,row in df.iterrows():
+        for i,row in df.iterrows():
 
-                st.subheader(row["ticket"])
+            st.subheader(row["ticket"])
 
-                st.write(row["description"])
+            st.write("หมวดหมู่:",row["category"])
+            st.write("สถานที่:",row["location"])
+            st.write("รายละเอียด:",row["description"])
+            st.write("วันที่:",row["date"],"เวลา:",row["time"])
 
-                status = st.selectbox(
-                    "สถานะ",
-                    ["pending","in progress","done"],
-                    index=["pending","in progress","done"].index(row["status"]),
-                    key=i
-                )
+            status = st.selectbox(
+            "สถานะ",
+            ["pending","in progress","done"],
+            index=["pending","in progress","done"].index(row["status"]),
+            key=i
+            )
 
-                df.at[i,"status"] = status
+            if st.button("บันทึกสถานะ",key=f"btn{i}"):
 
-            df.to_csv(DATA_FILE,index=False)
+                sheet.update_cell(i+2,8,status)
+
+                st.success("อัปเดตแล้ว")
