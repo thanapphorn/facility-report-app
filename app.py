@@ -5,41 +5,81 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import uuid
 
-# =========================
+# --------------------------
+# PAGE CONFIG
+# --------------------------
+
+st.set_page_config(
+    page_title="Facility Report",
+    page_icon="🛠",
+    layout="centered"
+)
+
+# --------------------------
+# STYLE (Mobile UI)
+# --------------------------
+
+st.markdown("""
+<style>
+
+.stButton button{
+width:100%;
+border-radius:10px;
+height:45px;
+font-size:16px;
+}
+
+.block-container{
+padding-top:2rem;
+}
+
+.ticket-card{
+background:#f7f7f7;
+padding:15px;
+border-radius:10px;
+margin-bottom:15px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# --------------------------
 # CONNECT GOOGLE SHEET
-# =========================
+# --------------------------
 
 scope = [
 "https://spreadsheets.google.com/feeds",
 "https://www.googleapis.com/auth/drive"
 ]
 
-creds = ServiceAccountCredentials.from_json_keyfile_name(
-"credentials.json", scope
+creds = ServiceAccountCredentials.from_json_keyfile_dict(
+st.secrets["gcp_service_account"],
+scope
 )
 
 client = gspread.authorize(creds)
 
 sheet = client.open("facility-report").sheet1
 
+# --------------------------
+# MENU
+# --------------------------
 
-st.set_page_config(page_title="ระบบแจ้งปัญหา")
-
-menu = st.sidebar.selectbox(
-"เมนู",
-["แจ้งปัญหา","ติดตามงาน","Admin"]
+menu = st.selectbox(
+"เลือกเมนู",
+["📝 แจ้งปัญหา","🔍 ติดตามงาน","🛠 Admin"]
 )
 
 # =========================
-# PAGE 1 : REPORT
+# REPORT PAGE
 # =========================
 
-if menu == "แจ้งปัญหา":
+if menu == "📝 แจ้งปัญหา":
 
     st.title("📝 แจ้งปัญหา")
 
     category = st.selectbox(
-    "หมวดหมู่ปัญหา",
+    "หมวดหมู่",
     ["ไฟฟ้า","ประปา","ห้องน้ำ","แอร์","เฟอร์นิเจอร์","อื่นๆ"]
     )
 
@@ -48,7 +88,10 @@ if menu == "แจ้งปัญหา":
     location = st.text_input("สถานที่")
     description = st.text_area("รายละเอียด")
 
-    image = st.file_uploader("📸 แนบรูป",type=["jpg","png","jpeg"])
+    image = st.file_uploader(
+    "📸 แนบรูป",
+    type=["jpg","png","jpeg"]
+    )
 
     if st.button("ส่งรายงาน"):
 
@@ -74,54 +117,81 @@ if menu == "แจ้งปัญหา":
         st.success(f"ส่งสำเร็จ Ticket: {ticket}")
 
 # =========================
-# PAGE 2 : TRACK
+# TRACK PAGE
 # =========================
 
-elif menu == "ติดตามงาน":
+elif menu == "🔍 ติดตามงาน":
 
     st.title("🔍 ติดตามงาน")
 
-    ticket = st.text_input("กรอกรหัส Ticket")
+    ticket = st.text_input("Ticket ID")
 
-    data = sheet.get_all_records()
+    if ticket:
 
-    df = pd.DataFrame(data)
+        data = sheet.get_all_records()
+        df = pd.DataFrame(data)
 
-    result = df[df["ticket"] == ticket]
+        result = df[df["ticket"] == ticket]
 
-    if len(result)>0:
+        if len(result)>0:
 
-        st.subheader("สถานะงาน")
+            r = result.iloc[0]
 
-        st.write(result)
+            st.markdown(f"""
+            <div class="ticket-card">
 
-    elif ticket != "":
-        st.warning("ไม่พบ Ticket")
+            <b>Ticket:</b> {r['ticket']} <br>
+
+            <b>หมวดหมู่:</b> {r['category']} <br>
+
+            <b>สถานที่:</b> {r['location']} <br>
+
+            <b>รายละเอียด:</b> {r['description']} <br>
+
+            <b>สถานะ:</b> {r['status']} <br>
+
+            <b>วันที่:</b> {r['date']} {r['time']}
+
+            </div>
+            """, unsafe_allow_html=True)
+
+        else:
+
+            st.warning("ไม่พบ Ticket")
 
 # =========================
-# PAGE 3 : ADMIN
+# ADMIN PAGE
 # =========================
 
-elif menu == "Admin":
+elif menu == "🛠 Admin":
 
     st.title("🔐 Admin")
 
-    password = st.text_input("รหัสผ่าน",type="password")
+    password = st.text_input(
+    "รหัสผ่าน",
+    type="password"
+    )
 
     if password == "admin123":
 
         data = sheet.get_all_records()
-
         df = pd.DataFrame(data)
 
         for i,row in df.iterrows():
 
-            st.subheader(row["ticket"])
+            st.markdown("---")
 
-            st.write("หมวดหมู่:",row["category"])
-            st.write("สถานที่:",row["location"])
-            st.write("รายละเอียด:",row["description"])
-            st.write("วันที่:",row["date"],"เวลา:",row["time"])
+            st.markdown(f"""
+            <div class="ticket-card">
+
+            <b>{row['ticket']}</b><br>
+            หมวดหมู่: {row['category']}<br>
+            สถานที่: {row['location']}<br>
+            รายละเอียด: {row['description']}<br>
+            วันที่: {row['date']} {row['time']}
+
+            </div>
+            """, unsafe_allow_html=True)
 
             status = st.selectbox(
             "สถานะ",
