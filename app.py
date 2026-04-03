@@ -1,86 +1,87 @@
 import streamlit as st
 import gspread
-import pandas as pd
 from oauth2client.service_account import ServiceAccountCredentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 from datetime import datetime
+import pandas as pd
 import uuid
+import io
 
-# --------------------------
-# PAGE CONFIG
-# --------------------------
-
-st.set_page_config(
-    page_title="Facility Report",
-    page_icon="🛠",
-    layout="centered"
-)
-
-# --------------------------
-# STYLE (Mobile UI)
-# --------------------------
-
-st.markdown("""
-<style>
-
-.stButton button{
-width:100%;
-border-radius:10px;
-height:45px;
-font-size:16px;
-}
-
-.block-container{
-padding-top:2rem;
-}
-
-.ticket-card{
-background:#f7f7f7;
-padding:15px;
-border-radius:10px;
-margin-bottom:15px;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# --------------------------
-# CONNECT GOOGLE SHEET
-# --------------------------
+# -----------------------
+# GOOGLE API CONNECT
+# -----------------------
 
 scope = [
-"https://spreadsheets.google.com/feeds",
-"https://www.googleapis.com/auth/drive"
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
 ]
 
 creds = ServiceAccountCredentials.from_json_keyfile_dict(
-st.secrets["gcp_service_account"],
-scope
+    st.secrets["gcp_service_account"],
+    scope
 )
 
 client = gspread.authorize(creds)
 
 sheet = client.open("facility-report").sheet1
 
-# --------------------------
-# MENU
-# --------------------------
-
-menu = st.selectbox(
-"เลือกเมนู",
-["📝 แจ้งปัญหา","🔍 ติดตามงาน","🛠 Admin"]
+drive_service = build(
+    "drive",
+    "v3",
+    credentials=creds
 )
 
-# =========================
-# REPORT PAGE
-# =========================
+# -----------------------
+# UPLOAD IMAGE FUNCTION
+# -----------------------
 
-if menu == "📝 แจ้งปัญหา":
+def upload_to_drive(uploaded_file):
 
-    st.title("📝 แจ้งปัญหา")
+    file_metadata = {
+        "name": uploaded_file.name,
+        "parents": ["1FbKMmQ-MyToYHWnxRRcXEepqXhUXqT4t"]
+    }
+
+    media = MediaIoBaseUpload(
+        io.BytesIO(uploaded_file.getvalue()),
+        mimetype=uploaded_file.type
+    )
+
+    file = drive_service.files().create(
+        body=file_metadata,
+        media_body=media,
+        fields="id"
+    ).execute()
+
+    file_id = file.get("id")
+
+    return f"https://drive.google.com/uc?id={file_id}"
+
+# -----------------------
+# UI
+# -----------------------
+
+st.set_page_config(page_title="Facility Reporting")
+
+st.title("🏢 Facility Reporting System")
+
+menu = st.sidebar.selectbox(
+    "Menu",
+    ["📩 แจ้งปัญหา", "🔎 ติดตามสถานะ", "👨‍💼 Admin"]
+)
+
+# -----------------------
+# REPORT ISSUE
+# -----------------------
+
+if menu == "📩 แจ้งปัญหา":
+
+    st.header("แจ้งปัญหา")
 
     category = st.selectbox(
-    "หมวดหมู่",
-    ["ไฟฟ้า","ประปา","ห้องน้ำ","แอร์","เฟอร์นิเจอร์","อื่นๆ"]
+        "หมวดหมู่",
+        ["ไฟฟ้า","ประปา","ความสะอาด","อุปกรณ์ชำรุด","อื่นๆ"]
     )
 
     name = st.text_input("ชื่อ")
@@ -89,123 +90,105 @@ if menu == "📝 แจ้งปัญหา":
     description = st.text_area("รายละเอียด")
 
     image = st.file_uploader(
-    "📸 แนบรูป",
-    type=["jpg","png","jpeg"]
+        "แนบรูป",
+        type=["jpg","png","jpeg"]
     )
 
     if st.button("ส่งรายงาน"):
 
-        ticket = "RTP-" + str(uuid.uuid4())[:6]
+        report_id = "RTP-" + str(uuid.uuid4())[:6]
 
-        now = datetime.now()
-        date = now.strftime("%Y-%m-%d")
-        time = now.strftime("%H:%M")
+        date = datetime.now().strftime("%Y-%m-%d")
+        time = datetime.now().strftime("%H:%M")
+
+        image_url = ""
+
+        if image is not None:
+            image_url = upload_to_drive(image)
 
         sheet.append_row([
-        ticket,
-        category,
-        name,
-        phone,
-        location,
-        description,
-        "",
-        "pending",
-        date,
-        time
+            report_id,
+            category,
+            name,
+            phone,
+            location,
+            description,
+            image_url,
+            "pending",
+            date,
+            time
         ])
 
-        st.success(f"ส่งสำเร็จ Ticket: {ticket}")
+        st.success("ส่งรายงานสำเร็จ")
 
-# =========================
-# TRACK PAGE
-# =========================
+        st.write("รหัสติดตาม:", report_id)
 
-elif menu == "🔍 ติดตามงาน":
+# -----------------------
+# TRACK STATUS
+# -----------------------
 
-    st.title("🔍 ติดตามงาน")
+elif menu == "🔎 ติดตามสถานะ":
 
-    ticket = st.text_input("Ticket ID")
+    st.header("ติดตามสถานะ")
 
-    if ticket:
+    track_id = st.text_input("กรอกรหัสติดตาม")
+
+    if st.button("ค้นหา"):
 
         data = sheet.get_all_records()
+
         df = pd.DataFrame(data)
 
-        result = df[df["ticket"] == ticket]
+        result = df[df["report_id"] == track_id]
 
-        if len(result)>0:
+        if len(result) > 0:
 
-            r = result.iloc[0]
+            row = result.iloc[0]
 
-            st.markdown(f"""
-            <div class="ticket-card">
+            st.write("สถานะ:", row["status"])
+            st.write("สถานที่:", row["location"])
+            st.write("รายละเอียด:", row["description"])
 
-            <b>Ticket:</b> {r['ticket']} <br>
-
-            <b>หมวดหมู่:</b> {r['category']} <br>
-
-            <b>สถานที่:</b> {r['location']} <br>
-
-            <b>รายละเอียด:</b> {r['description']} <br>
-
-            <b>สถานะ:</b> {r['status']} <br>
-
-            <b>วันที่:</b> {r['date']} {r['time']}
-
-            </div>
-            """, unsafe_allow_html=True)
+            if row["image"] != "":
+                st.image(row["image"])
 
         else:
 
-            st.warning("ไม่พบ Ticket")
+            st.error("ไม่พบข้อมูล")
 
-# =========================
-# ADMIN PAGE
-# =========================
+# -----------------------
+# ADMIN
+# -----------------------
 
-elif menu == "🛠 Admin":
+elif menu == "👨‍💼 Admin":
 
-    st.title("🔐 Admin")
+    st.header("Admin Panel")
 
-    password = st.text_input(
-    "รหัสผ่าน",
-    type="password"
-    )
+    password = st.text_input("รหัสผ่าน", type="password")
 
     if password == "admin123":
 
         data = sheet.get_all_records()
-        df = pd.DataFrame(data)
 
-        for i,row in df.iterrows():
+        for i,row in enumerate(data):
 
-            st.markdown("---")
+            st.write("---")
 
-            st.markdown(f"""
-            <div class="ticket-card">
+            st.write("ID:", row["report_id"])
+            st.write("สถานที่:", row["location"])
+            st.write("รายละเอียด:", row["description"])
 
-            <b>{row['ticket']}</b><br>
-            หมวดหมู่: {row['category']}<br>
-            สถานที่: {row['location']}<br>
-            รายละเอียด: {row['description']}<br>
-            วันที่: {row['date']} {row['time']}
-
-            </div>
-            """, unsafe_allow_html=True)
+            if row["image"] != "":
+                st.image(row["image"], width=300)
 
             status = st.selectbox(
-            "สถานะ",
-            ["pending","in progress","done"],
-            index=["pending","in progress","done"].index(row["status"]),
-            key=i
+                "เปลี่ยนสถานะ",
+                ["pending","กำลังดำเนินการ","เสร็จแล้ว"],
+                key=i
             )
 
-            if st.button("บันทึกสถานะ",key=f"btn{i}"):
+            if st.button("อัปเดต", key=f"btn{i}"):
 
                 sheet.update_cell(i+2,8,status)
 
-                st.success("อัปเดตแล้ว")
-
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-import io
+                st.success("อัปเดตสถานะแล้ว")
