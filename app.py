@@ -3,66 +3,23 @@ import pandas as pd
 import random
 from datetime import datetime
 
-# -----------------------
-# Page Config
-# -----------------------
+st.set_page_config(page_title="Facility Report", page_icon="🏢")
 
-st.set_page_config(
-    page_title="Facility Report",
-    page_icon="🏢",
-    layout="centered"
-)
-
-# -----------------------
-# CSS UI Style
-# -----------------------
-
-st.markdown("""
-<style>
-
-input:focus, textarea:focus, select:focus {
-border: 2px solid #1f77ff !important;
-box-shadow: 0 0 5px rgba(31,119,255,0.5);
-outline: none;
-}
-
-.stButton>button {
-background-color:#1f77ff;
-color:white;
-border-radius:8px;
-height:40px;
-font-weight:bold;
-}
-
-.stButton>button:hover {
-background-color:#155ed9;
-color:white;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# -----------------------
-# Memory Storage
-# -----------------------
-
+# เก็บข้อมูลชั่วคราว
 if "reports" not in st.session_state:
     st.session_state.reports = []
 
-# -----------------------
 # Sidebar
-# -----------------------
-
-st.sidebar.title("🏢 Facility Report")
+st.sidebar.title("🏢 Facility Report System")
 
 menu = st.sidebar.radio(
     "Menu",
     ["แจ้งปัญหา", "ติดตามสถานะ", "Admin"]
 )
 
-# -----------------------
-# PAGE 1 : REPORT ISSUE
-# -----------------------
+# -----------------------------
+# หน้าแจ้งปัญหา
+# -----------------------------
 
 if menu == "แจ้งปัญหา":
 
@@ -72,7 +29,7 @@ if menu == "แจ้งปัญหา":
 
     category = st.selectbox(
         "หมวดปัญหา",
-        ["ลิฟต์","ไฟฟ้า","ห้องน้ำ","ที่จอดรถ","อื่นๆ"]
+        ["ลิฟต์", "ไฟฟ้า", "ห้องน้ำ", "ที่จอดรถ", "อื่นๆ"]
     )
 
     location = st.text_input("สถานที่")
@@ -83,7 +40,7 @@ if menu == "แจ้งปัญหา":
 
     image = st.file_uploader("แนบรูปภาพ", type=["jpg","png","jpeg"])
 
-    if st.button("🚨 แจ้งปัญหา", use_container_width=True):
+    if st.button("แจ้งปัญหา"):
 
         report_id = "RP-" + str(random.randint(100000,999999))
 
@@ -108,9 +65,9 @@ if menu == "แจ้งปัญหา":
 
         st.info("สามารถคัดลอกรหัสนี้เพื่อติดตามสถานะ")
 
-# -----------------------
-# PAGE 2 : TRACK STATUS
-# -----------------------
+# -----------------------------
+# ติดตามสถานะ
+# -----------------------------
 
 elif menu == "ติดตามสถานะ":
 
@@ -140,9 +97,9 @@ elif menu == "ติดตามสถานะ":
         if not found:
             st.error("ไม่พบรหัสแจ้งปัญหา")
 
-# -----------------------
-# PAGE 3 : ADMIN
-# -----------------------
+# -----------------------------
+# ADMIN
+# -----------------------------
 
 elif menu == "Admin":
 
@@ -158,7 +115,7 @@ elif menu == "Admin":
 
         st.subheader("📋 รายการแจ้งปัญหา")
 
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df)
 
         if len(df) > 0:
 
