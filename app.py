@@ -150,8 +150,8 @@ elif menu == "🔎 ติดตามสถานะ":
             st.write("สถานที่:", row["location"])
             st.write("รายละเอียด:", row["description"])
 
-            if row["image"] != "":
-                st.image(row["image"])
+            if row["image_url"] != "":
+                st.image(row["image_url"])
 
         else:
 
@@ -179,8 +179,8 @@ elif menu == "👨‍💼 Admin":
             st.write("สถานที่:", row["location"])
             st.write("รายละเอียด:", row["description"])
 
-            if row["image"] != "":
-                st.image(row["image"], width=300)
+            if row["image_url"] != "":
+                st.image(row["image_url"], width=300)
 
             status = st.selectbox(
                 "เปลี่ยนสถานะ",
