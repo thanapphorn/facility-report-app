@@ -1,182 +1,141 @@
 import streamlit as st
-import gspread
 import pandas as pd
-import io
-import uuid
-import smtplib
+import random
 
-from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-from datetime import datetime
-from email.mime.text import MIMEText
+st.set_page_config(page_title="Facility Report", layout="centered")
 
-# -----------------------
-# CONFIG
-# -----------------------
+# เก็บข้อมูลชั่วคราว
+if "reports" not in st.session_state:
+    st.session_state.reports = []
 
-ADMIN_PASSWORD = "1234"
+# --------------------
+# Sidebar
+# --------------------
 
-EMAIL_SENDER = "your_email@gmail.com"
-EMAIL_PASSWORD = "your_app_password"
-EMAIL_RECEIVER = "your_email@gmail.com"
+st.sidebar.title("🏢 Facility Report")
 
-FOLDER_ID = "YOUR_DRIVE_FOLDER_ID"
-
-# -----------------------
-# GOOGLE API CONNECT
-# -----------------------
-
-scope = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
-
-creds = Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"],
-    scopes=scope
-)
-gc = gspread.authorize(creds)
-
-sheet = gc.open("facility-report").sheet1
-
-drive_service = build("drive", "v3", credentials=creds)
-
-# -----------------------
-# EMAIL FUNCTION
-# -----------------------
-
-def send_email(name, location, problem):
-
-    msg = MIMEText(f"""
-มีการแจ้งปัญหาใหม่
-
-ผู้แจ้ง: {name}
-สถานที่: {location}
-รายละเอียด: {problem}
-
-กรุณาเข้าระบบเพื่อตรวจสอบ
-""")
-
-    msg["Subject"] = "แจ้งปัญหาใหม่ในระบบ"
-    msg["From"] = EMAIL_SENDER
-    msg["To"] = EMAIL_RECEIVER
-
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-        server.send_message(msg)
-
-# -----------------------
-# PAGE TITLE
-# -----------------------
-
-st.title("🏢 ระบบแจ้งปัญหาภายในอาคาร")
-
-menu = st.sidebar.selectbox(
-    "เมนู",
-    ["แจ้งปัญหา", "Admin"]
+menu = st.sidebar.radio(
+    "Menu",
+    ["แจ้งปัญหา", "ติดตามสถานะ", "Admin"]
 )
 
-# -----------------------
-# PAGE 1 REPORT
-# -----------------------
+# --------------------
+# หน้าแจ้งปัญหา
+# --------------------
 
 if menu == "แจ้งปัญหา":
 
-    st.header("แจ้งปัญหา")
+    st.title("📢 แจ้งปัญหาภายในอาคาร")
 
     name = st.text_input("ชื่อผู้แจ้ง")
 
-    location = st.selectbox(
-        "สถานที่",
-        ["ลิฟต์","ห้องน้ำ","ที่จอดรถ","ไฟฟ้า","อื่นๆ"]
+    category = st.selectbox(
+        "หมวดปัญหา",
+        ["ลิฟต์","ไฟฟ้า","ห้องน้ำ","ที่จอดรถ","อื่นๆ"]
     )
 
-    problem = st.text_area("รายละเอียดปัญหา")
+    location = st.text_input("สถานที่")
 
-    report_time = st.time_input("เวลาแจ้ง")
+    phone = st.text_input("เบอร์โทร")
 
-    image = st.file_uploader("แนบรูปภาพ", type=["jpg","png","jpeg"])
+    image = st.file_uploader("แนบรูปภาพ")
 
-    if st.button("แจ้งปัญหา"):
+    if st.button("🚨 แจ้งปัญหา", use_container_width=True):
 
-        image_url = ""
+        report_id = "RP-" + str(random.randint(100000,999999))
 
-        if image is not None:
+        report = {
+            "ID": report_id,
+            "Name": name,
+            "Category": category,
+            "Location": location,
+            "Phone": phone,
+            "Status": "รอดำเนินการ"
+        }
 
-            file_id = str(uuid.uuid4())
+        st.session_state.reports.append(report)
 
-            file_metadata = {
-                "name": file_id + ".jpg",
-                "parents": [FOLDER_ID]
-            }
+        st.success("แจ้งปัญหาสำเร็จ")
 
-            media = MediaIoBaseUpload(
-                io.BytesIO(image.read()),
-                mimetype="image/jpeg"
-            )
+        st.subheader("รหัสแจ้งปัญหา")
 
-            uploaded = drive_service.files().create(
-                body=file_metadata,
-                media_body=media,
-                fields="id"
-            ).execute()
+        st.code(report_id)
 
-            image_url = f"https://drive.google.com/file/d/{uploaded['id']}/view"
+        st.info("สามารถคัดลอกรหัสนี้เพื่อติดตามสถานะ")
 
-        sheet.append_row([
-            str(uuid.uuid4()),
-            name,
-            location,
-            problem,
-            image_url,
-            "รอดำเนินการ",
-            datetime.now().strftime("%Y-%m-%d"),
-            str(report_time)
-        ])
+# --------------------
+# ติดตามสถานะ
+# --------------------
 
-        send_email(name, location, problem)
+elif menu == "ติดตามสถานะ":
 
-        st.success("แจ้งปัญหาสำเร็จ และส่งอีเมลแจ้งเตือนแล้ว")
+    st.title("🔍 ติดตามสถานะ")
 
-# -----------------------
-# ADMIN PAGE
-# -----------------------
+    track_id = st.text_input("กรอกรหัสแจ้งปัญหา")
 
-if menu == "Admin":
+    if st.button("ตรวจสอบสถานะ"):
 
-    password = st.text_input("ใส่รหัสผ่าน Admin", type="password")
+        found = False
 
-    if password == ADMIN_PASSWORD:
+        for r in st.session_state.reports:
+
+            if r["ID"] == track_id:
+
+                found = True
+
+                st.success("พบข้อมูล")
+
+                st.write("รหัสแจ้ง :", r["ID"])
+                st.write("หมวด :", r["Category"])
+                st.write("สถานที่ :", r["Location"])
+                st.write("สถานะ :", r["Status"])
+
+        if not found:
+            st.error("ไม่พบรหัสแจ้งปัญหา")
+
+# --------------------
+# ADMIN
+# --------------------
+
+elif menu == "Admin":
+
+    st.title("🔐 Admin Login")
+
+    password = st.text_input("Password", type="password")
+
+    if password == "adm123":
 
         st.success("เข้าสู่ระบบ Admin")
 
-        data = sheet.get_all_records()
+        df = pd.DataFrame(st.session_state.reports)
 
-        df = pd.DataFrame(data)
+        st.subheader("รายการแจ้งปัญหา")
 
-        st.dataframe(df)
+        st.dataframe(df, use_container_width=True)
 
-        st.subheader("เปลี่ยนสถานะการซ่อม")
+        if len(df) > 0:
 
-        if not df.empty:
+            st.subheader("เปลี่ยนสถานะ")
 
-            job_id = st.selectbox("เลือก ID งาน", df["ID"])
+            selected_id = st.selectbox(
+                "เลือก ID",
+                df["ID"]
+            )
 
-            status = st.selectbox(
+            new_status = st.selectbox(
                 "สถานะ",
-                ["รอดำเนินการ","กำลังซ่อม","ซ่อมเสร็จ"]
+                ["รอดำเนินการ","กำลังดำเนินการ","เสร็จสิ้น"]
             )
 
             if st.button("อัปเดตสถานะ"):
 
-                cell = sheet.find(job_id)
+                for r in st.session_state.reports:
 
-                row = cell.row
+                    if r["ID"] == selected_id:
 
-                sheet.update_cell(row,6,status)
+                        r["Status"] = new_status
 
-                st.success("อัปเดตสถานะเรียบร้อย")
+                st.success("อัปเดตสถานะแล้ว")
 
     elif password != "":
         st.error("รหัสผ่านไม่ถูกต้อง")
