@@ -1,6 +1,6 @@
 import streamlit as st
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from datetime import datetime
@@ -13,13 +13,16 @@ import io
 # -----------------------
 
 scope = [
-    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds = ServiceAccountCredentials.from_json_keyfile_dict(
-    st.secrets["gcp_service_account"],
-    scope
+service_account_info = dict(st.secrets["gcp_service_account"])
+service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
+
+creds = Credentials.from_service_account_info(
+    service_account_info,
+    scopes=scope
 )
 
 client = gspread.authorize(creds)
@@ -120,7 +123,6 @@ if menu == "📩 แจ้งปัญหา":
         ])
 
         st.success("ส่งรายงานสำเร็จ")
-
         st.write("รหัสติดตาม:", report_id)
 
 # -----------------------
@@ -136,7 +138,6 @@ elif menu == "🔎 ติดตามสถานะ":
     if st.button("ค้นหา"):
 
         data = sheet.get_all_records()
-
         df = pd.DataFrame(data)
 
         result = df[df["report_id"] == track_id]
