@@ -36,10 +36,9 @@ creds = Credentials.from_service_account_info(
     st.secrets["gcp_service_account"],
     scopes=scope
 )
-
 gc = gspread.authorize(creds)
 
-sheet = gc.open("building_report").sheet1
+sheet = gc.open("facility-report").sheet1
 
 drive_service = build("drive", "v3", credentials=creds)
 
