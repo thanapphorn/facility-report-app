@@ -19,7 +19,7 @@ ADMIN_PASSWORD = "1234"
 
 EMAIL_SENDER = "your_email@gmail.com"
 EMAIL_PASSWORD = "your_app_password"
-EMAIL_RECEIVER = "admin_email@gmail.com"
+EMAIL_RECEIVER = "your_email@gmail.com"
 
 FOLDER_ID = "YOUR_DRIVE_FOLDER_ID"
 
@@ -32,33 +32,32 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-creds = Credentials.from_service_account_file(
-    "credentials.json",
+creds = Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"],
     scopes=scope
 )
 
 gc = gspread.authorize(creds)
+
 sheet = gc.open("building_report").sheet1
 
 drive_service = build("drive", "v3", credentials=creds)
 
 # -----------------------
-# SEND EMAIL FUNCTION
+# EMAIL FUNCTION
 # -----------------------
 
 def send_email(name, location, problem):
 
-    msg = MIMEText(
-        f"""
+    msg = MIMEText(f"""
 มีการแจ้งปัญหาใหม่
 
 ผู้แจ้ง: {name}
 สถานที่: {location}
-ปัญหา: {problem}
+รายละเอียด: {problem}
 
-กรุณาตรวจสอบระบบ
-"""
-    )
+กรุณาเข้าระบบเพื่อตรวจสอบ
+""")
 
     msg["Subject"] = "แจ้งปัญหาใหม่ในระบบ"
     msg["From"] = EMAIL_SENDER
@@ -69,7 +68,7 @@ def send_email(name, location, problem):
         server.send_message(msg)
 
 # -----------------------
-# PAGE
+# PAGE TITLE
 # -----------------------
 
 st.title("🏢 ระบบแจ้งปัญหาภายในอาคาร")
@@ -80,7 +79,7 @@ menu = st.sidebar.selectbox(
 )
 
 # -----------------------
-# PAGE : REPORT
+# PAGE 1 REPORT
 # -----------------------
 
 if menu == "แจ้งปัญหา":
@@ -91,14 +90,14 @@ if menu == "แจ้งปัญหา":
 
     location = st.selectbox(
         "สถานที่",
-        ["ห้องพัก","ลิฟต์","ห้องน้ำ","ที่จอดรถ","พื้นที่ส่วนกลาง"]
+        ["ลิฟต์","ห้องน้ำ","ที่จอดรถ","ไฟฟ้า","อื่นๆ"]
     )
 
     problem = st.text_area("รายละเอียดปัญหา")
 
     report_time = st.time_input("เวลาแจ้ง")
 
-    image = st.file_uploader("แนบรูปภาพ")
+    image = st.file_uploader("แนบรูปภาพ", type=["jpg","png","jpeg"])
 
     if st.button("แจ้งปัญหา"):
 
@@ -139,30 +138,31 @@ if menu == "แจ้งปัญหา":
 
         send_email(name, location, problem)
 
-        st.success("แจ้งปัญหาสำเร็จ ระบบได้ส่งอีเมลแจ้งเตือนแล้ว")
+        st.success("แจ้งปัญหาสำเร็จ และส่งอีเมลแจ้งเตือนแล้ว")
 
 # -----------------------
-# PAGE : ADMIN LOGIN
+# ADMIN PAGE
 # -----------------------
 
 if menu == "Admin":
 
-    password = st.text_input("ใส่รหัสผ่าน", type="password")
+    password = st.text_input("ใส่รหัสผ่าน Admin", type="password")
 
     if password == ADMIN_PASSWORD:
 
         st.success("เข้าสู่ระบบ Admin")
 
         data = sheet.get_all_records()
+
         df = pd.DataFrame(data)
 
         st.dataframe(df)
 
-        st.subheader("เปลี่ยนสถานะงาน")
+        st.subheader("เปลี่ยนสถานะการซ่อม")
 
         if not df.empty:
 
-            job_id = st.selectbox("เลือกงาน", df["ID"])
+            job_id = st.selectbox("เลือก ID งาน", df["ID"])
 
             status = st.selectbox(
                 "สถานะ",
