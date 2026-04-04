@@ -54,10 +54,17 @@ def upload_to_drive(uploaded_file):
     file = drive_service.files().create(
         body=file_metadata,
         media_body=media,
-        fields="id"
+        fields="id",
+        supportsAllDrives=True
     ).execute()
 
     file_id = file.get("id")
+
+    # ทำให้รูปเปิดดูได้
+    drive_service.permissions().create(
+        fileId=file_id,
+        body={"type": "anyone", "role": "reader"}
+    ).execute()
 
     return f"https://drive.google.com/uc?id={file_id}"
 
