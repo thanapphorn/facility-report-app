@@ -3,7 +3,7 @@ import pandas as pd
 import random
 from datetime import datetime
 
-st.set_page_config(page_title="Facility Report", page_icon="🔧", layout="wide")
+st.set_page_config(page_title="Facility Report", page_icon="🏢", layout="wide")
 
 # -----------------------
 # CSS Dashboard
@@ -36,29 +36,32 @@ font-weight:bold;
 """, unsafe_allow_html=True)
 
 # -----------------------
-# MEMORY STORAGE
+# Memory Storage
 # -----------------------
 
 if "reports" not in st.session_state:
     st.session_state.reports = []
 
+if "page" not in st.session_state:
+    st.session_state.page = 1
+
 # -----------------------
-# HEADER
+# Menu
 # -----------------------
 
-st.title("🔧 ระบบรายงานปัญหา")
+st.title("🏢 ระบบแจ้งปัญหาภายในอาคาร")
 
 menu = st.radio(
     "",
-    ["📝 ส่งรายงาน","📊 ติดตามสถานะ","🔐 Admin"],
+    ["📢 แจ้งปัญหา","🔎 ติดตามสถานะ","🔐 Admin"],
     horizontal=True
 )
 
 # -----------------------
-# PAGE 1 REPORT
+# PAGE 1 : REPORT
 # -----------------------
 
-if menu == "📝 ส่งรายงาน":
+if menu == "📢 แจ้งปัญหา":
 
     st.header("📢 แจ้งปัญหา")
 
@@ -78,7 +81,7 @@ if menu == "📝 ส่งรายงาน":
     location = st.text_input("สถานที่")
     detail = st.text_area("รายละเอียดปัญหา")
 
-    image = st.file_uploader("แนบรูปภาพ")
+    image = st.text_input("ลิงก์รูปภาพ (เช่น Google Drive)")
 
     confirm = st.checkbox("ยืนยันการแจ้งปัญหา")
 
@@ -101,7 +104,7 @@ if menu == "📝 ส่งรายงาน":
                 "Date": datetime.now().strftime("%d/%m/%Y"),
                 "Time": datetime.now().strftime("%H:%M"),
                 "Month": datetime.now().strftime("%B %Y"),
-                "Image": "View Image"
+                "Image": image
             }
 
             st.session_state.reports.append(report)
@@ -110,10 +113,10 @@ if menu == "📝 ส่งรายงาน":
             st.code(report_id)
 
 # -----------------------
-# PAGE 2 TRACK
+# PAGE 2 : TRACK
 # -----------------------
 
-elif menu == "📊 ติดตามสถานะ":
+elif menu == "🔎 ติดตามสถานะ":
 
     st.header("🔎 ติดตามสถานะ")
 
@@ -142,7 +145,7 @@ elif menu == "📊 ติดตามสถานะ":
             st.error("ไม่พบข้อมูล")
 
 # -----------------------
-# PAGE 3 ADMIN
+# PAGE 3 : ADMIN
 # -----------------------
 
 elif menu == "🔐 Admin":
@@ -164,7 +167,7 @@ elif menu == "🔐 Admin":
         st.stop()
 
     # -----------------------
-    # DASHBOARD
+    # Dashboard
     # -----------------------
 
     total = len(df)
@@ -195,7 +198,7 @@ elif menu == "🔐 Admin":
     """, unsafe_allow_html=True)
 
     # -----------------------
-    # FILTER
+    # Filter
     # -----------------------
 
     col1,col2 = st.columns(2)
@@ -205,7 +208,7 @@ elif menu == "🔐 Admin":
 
     with col2:
         month = st.selectbox(
-            "Sort by เดือน",
+            "Filter เดือน",
             ["ทั้งหมด"] + df["Month"].unique().tolist()
         )
 
@@ -218,23 +221,52 @@ elif menu == "🔐 Admin":
         filtered = filtered[filtered["Month"] == month]
 
     # -----------------------
-    # TABLE
+    # Pagination
     # -----------------------
 
-    st.subheader("📋 รายการแจ้งปัญหา")
+    rows_per_page = 10
+    total_rows = len(filtered)
+    total_pages = (total_rows - 1) // rows_per_page + 1
 
-    st.dataframe(
-        filtered[
+    col1,col2,col3 = st.columns([1,2,1])
+
+    with col1:
+        if st.button("Previous") and st.session_state.page > 1:
+            st.session_state.page -= 1
+
+    with col3:
+        if st.button("Next") and st.session_state.page < total_pages:
+            st.session_state.page += 1
+
+    st.write(f"Page {st.session_state.page} / {total_pages}")
+
+    start = (st.session_state.page - 1) * rows_per_page
+    end = start + rows_per_page
+
+    page_data = filtered.iloc[start:end]
+
+    # -----------------------
+    # Table + View Image link
+    # -----------------------
+
+    table = page_data.copy()
+
+    table["Image"] = table["Image"].apply(
+        lambda x: f'<a href="{x}" target="_blank">View Image</a>' if x else "-"
+    )
+
+    st.write(
+        table[
             [
                 "ID","Name","Phone","Category",
                 "Location","Date","Time","Status","Image"
             ]
-        ],
-        use_container_width=True
+        ].to_html(escape=False, index=False),
+        unsafe_allow_html=True
     )
 
     # -----------------------
-    # UPDATE STATUS
+    # Update Status
     # -----------------------
 
     st.subheader("🔄 เปลี่ยนสถานะ")
@@ -249,7 +281,6 @@ elif menu == "🔐 Admin":
     if st.button("Update"):
 
         for r in st.session_state.reports:
-
             if r["ID"] == selected_id:
                 r["Status"] = new_status
 
