@@ -1,16 +1,57 @@
 import streamlit as st
 import pandas as pd
 import random
+from datetime import datetime
 
-st.set_page_config(page_title="Facility Report", layout="centered")
+# -----------------------
+# Page Config
+# -----------------------
 
-# เก็บข้อมูลชั่วคราว
+st.set_page_config(
+    page_title="Facility Report",
+    page_icon="🏢",
+    layout="centered"
+)
+
+# -----------------------
+# CSS UI Style
+# -----------------------
+
+st.markdown("""
+<style>
+
+input:focus, textarea:focus, select:focus {
+border: 2px solid #1f77ff !important;
+box-shadow: 0 0 5px rgba(31,119,255,0.5);
+outline: none;
+}
+
+.stButton>button {
+background-color:#1f77ff;
+color:white;
+border-radius:8px;
+height:40px;
+font-weight:bold;
+}
+
+.stButton>button:hover {
+background-color:#155ed9;
+color:white;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------
+# Memory Storage
+# -----------------------
+
 if "reports" not in st.session_state:
     st.session_state.reports = []
 
-# --------------------
+# -----------------------
 # Sidebar
-# --------------------
+# -----------------------
 
 st.sidebar.title("🏢 Facility Report")
 
@@ -19,9 +60,9 @@ menu = st.sidebar.radio(
     ["แจ้งปัญหา", "ติดตามสถานะ", "Admin"]
 )
 
-# --------------------
-# หน้าแจ้งปัญหา
-# --------------------
+# -----------------------
+# PAGE 1 : REPORT ISSUE
+# -----------------------
 
 if menu == "แจ้งปัญหา":
 
@@ -38,7 +79,9 @@ if menu == "แจ้งปัญหา":
 
     phone = st.text_input("เบอร์โทร")
 
-    image = st.file_uploader("แนบรูปภาพ")
+    detail = st.text_area("รายละเอียดปัญหา")
+
+    image = st.file_uploader("แนบรูปภาพ", type=["jpg","png","jpeg"])
 
     if st.button("🚨 แจ้งปัญหา", use_container_width=True):
 
@@ -50,7 +93,9 @@ if menu == "แจ้งปัญหา":
             "Category": category,
             "Location": location,
             "Phone": phone,
-            "Status": "รอดำเนินการ"
+            "Detail": detail,
+            "Status": "รอดำเนินการ",
+            "Date": datetime.now().strftime("%d/%m/%Y")
         }
 
         st.session_state.reports.append(report)
@@ -63,9 +108,9 @@ if menu == "แจ้งปัญหา":
 
         st.info("สามารถคัดลอกรหัสนี้เพื่อติดตามสถานะ")
 
-# --------------------
-# ติดตามสถานะ
-# --------------------
+# -----------------------
+# PAGE 2 : TRACK STATUS
+# -----------------------
 
 elif menu == "ติดตามสถานะ":
 
@@ -89,13 +134,15 @@ elif menu == "ติดตามสถานะ":
                 st.write("หมวด :", r["Category"])
                 st.write("สถานที่ :", r["Location"])
                 st.write("สถานะ :", r["Status"])
+                st.write("วันที่แจ้ง :", r["Date"])
+                st.write("รายละเอียด :", r["Detail"])
 
         if not found:
             st.error("ไม่พบรหัสแจ้งปัญหา")
 
-# --------------------
-# ADMIN
-# --------------------
+# -----------------------
+# PAGE 3 : ADMIN
+# -----------------------
 
 elif menu == "Admin":
 
@@ -109,13 +156,13 @@ elif menu == "Admin":
 
         df = pd.DataFrame(st.session_state.reports)
 
-        st.subheader("รายการแจ้งปัญหา")
+        st.subheader("📋 รายการแจ้งปัญหา")
 
         st.dataframe(df, use_container_width=True)
 
         if len(df) > 0:
 
-            st.subheader("เปลี่ยนสถานะ")
+            st.subheader("🔧 เปลี่ยนสถานะ")
 
             selected_id = st.selectbox(
                 "เลือก ID",
