@@ -5,9 +5,9 @@ from datetime import datetime
 
 st.set_page_config(page_title="Facility Report", page_icon="🏢", layout="wide")
 
-# ---------------------------
-# CSS Dashboard สี
-# ---------------------------
+# -----------------------
+# CSS Dashboard
+# -----------------------
 
 st.markdown("""
 <style>
@@ -35,27 +35,27 @@ font-weight:bold;
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------
-# Memory storage
-# ---------------------------
+# -----------------------
+# Memory
+# -----------------------
 
 if "reports" not in st.session_state:
     st.session_state.reports = []
 
-# ---------------------------
+# -----------------------
 # Sidebar
-# ---------------------------
+# -----------------------
 
 st.sidebar.title("🏢 Facility System")
 
 menu = st.sidebar.radio(
     "Menu",
-    ["แจ้งปัญหา", "ติดตามสถานะ", "Admin"]
+    ["แจ้งปัญหา","ติดตามสถานะ","Admin"]
 )
 
-# ---------------------------
-# PAGE 1 REPORT ISSUE
-# ---------------------------
+# -----------------------
+# PAGE 1 REPORT
+# -----------------------
 
 if menu == "แจ้งปัญหา":
 
@@ -67,19 +67,19 @@ if menu == "แจ้งปัญหา":
     category = st.selectbox(
         "หมวดปัญหา",
         [
-            "ลิฟต์","ไฟฟ้า","ระบบแอร์","น้ำประปา",
-            "ห้องน้ำ","ประตู/หน้าต่าง","ไฟส่องสว่าง",
-            "กล้องวงจรปิด","อินเทอร์เน็ต","ที่จอดรถ",
-            "ความสะอาด","อื่นๆ"
+        "ลิฟต์","ไฟฟ้า","ระบบแอร์","น้ำประปา",
+        "ห้องน้ำ","ประตู/หน้าต่าง","ไฟส่องสว่าง",
+        "กล้องวงจรปิด","อินเทอร์เน็ต","ที่จอดรถ",
+        "ความสะอาด","อื่นๆ"
         ]
     )
 
     location = st.text_input("สถานที่")
     detail = st.text_area("รายละเอียดปัญหา")
 
-    image = st.file_uploader("แนบรูป", type=["jpg","png","jpeg"])
+    image = st.file_uploader("แนบรูป")
 
-    confirm = st.checkbox("ยืนยันการแจ้งปัญหา")
+    confirm = st.checkbox("ยืนยันการแจ้ง")
 
     if st.button("แจ้งปัญหา"):
 
@@ -88,6 +88,10 @@ if menu == "แจ้งปัญหา":
         else:
 
             report_id = "RP-" + str(random.randint(100000,999999))
+
+            image_link = ""
+            if image:
+                image_link = "View Image"
 
             report = {
                 "ID": report_id,
@@ -100,17 +104,17 @@ if menu == "แจ้งปัญหา":
                 "Date": datetime.now().strftime("%d/%m/%Y"),
                 "Time": datetime.now().strftime("%H:%M"),
                 "Month": datetime.now().strftime("%B %Y"),
-                "Image": image
+                "Image": image_link
             }
 
             st.session_state.reports.append(report)
 
-            st.success("แจ้งปัญหาสำเร็จ")
+            st.success("แจ้งสำเร็จ")
             st.code(report_id)
 
-# ---------------------------
-# PAGE 2 TRACK STATUS
-# ---------------------------
+# -----------------------
+# PAGE 2 TRACK
+# -----------------------
 
 elif menu == "ติดตามสถานะ":
 
@@ -133,23 +137,28 @@ elif menu == "ติดตามสถานะ":
                 st.write("ชื่อ:", r["Name"])
                 st.write("หมวด:", r["Category"])
                 st.write("สถานที่:", r["Location"])
+                st.write("สถานะ:", r["Status"])
                 st.write("วันที่:", r["Date"])
                 st.write("เวลา:", r["Time"])
-                st.write("สถานะ:", r["Status"])
-
-                if r["Image"]:
-                    st.image(r["Image"], width=300)
 
         if not found:
             st.error("ไม่พบข้อมูล")
 
-# ---------------------------
+# -----------------------
 # PAGE 3 ADMIN
-# ---------------------------
+# -----------------------
 
 elif menu == "Admin":
 
-    st.title("📊 Admin Dashboard")
+    st.title("🔐 Admin Login")
+
+    password = st.text_input("กรอกรหัสผ่าน", type="password")
+
+    if password != "ad123":
+        st.warning("กรุณาใส่รหัสผ่าน")
+        st.stop()
+
+    st.success("เข้าสู่ระบบ Admin")
 
     df = pd.DataFrame(st.session_state.reports)
 
@@ -158,7 +167,7 @@ elif menu == "Admin":
         st.stop()
 
     # -----------------------
-    # Dashboard statistics
+    # Dashboard
     # -----------------------
 
     total = len(df)
@@ -168,6 +177,7 @@ elif menu == "Admin":
 
     st.markdown(f"""
     <div class="dashboard">
+
         <div class="card total">
         แจ้งทั้งหมด<br><h1>{total}</h1>
         </div>
@@ -183,6 +193,7 @@ elif menu == "Admin":
         <div class="card done">
         เสร็จสิ้น<br><h1>{done}</h1>
         </div>
+
     </div>
     """, unsafe_allow_html=True)
 
@@ -215,28 +226,35 @@ elif menu == "Admin":
 
     st.subheader("📋 รายการแจ้งปัญหา")
 
-    for i,row in filtered.iterrows():
+    st.write(
+        filtered[[
+            "ID","Name","Phone","Category",
+            "Location","Date","Time","Status","Image"
+        ]]
+    )
 
-        col1,col2,col3,col4,col5,col6,col7,col8 = st.columns([1,1,1,1,1,1,1,1])
+    # -----------------------
+    # Update Status
+    # -----------------------
 
-        col1.write(row["ID"])
-        col2.write(row["Name"])
-        col3.write(row["Phone"])
-        col4.write(row["Category"])
-        col5.write(row["Location"])
-        col6.write(row["Date"] + " " + row["Time"])
+    st.subheader("🔄 เปลี่ยนสถานะ")
 
-        new_status = col7.selectbox(
-            "Status",
-            ["รอดำเนินการ","กำลังดำเนินการ","เสร็จสิ้น"],
-            index=["รอดำเนินการ","กำลังดำเนินการ","เสร็จสิ้น"].index(row["Status"]),
-            key=row["ID"]
-        )
+    selected_id = st.selectbox(
+        "เลือก ID",
+        df["ID"]
+    )
 
-        if new_status != row["Status"]:
-            st.session_state.reports[i]["Status"] = new_status
+    new_status = st.selectbox(
+        "สถานะ",
+        ["รอดำเนินการ","กำลังดำเนินการ","เสร็จสิ้น"]
+    )
 
-        if row["Image"]:
-            col8.image(row["Image"], width=80)
-        else:
-            col8.write("-")
+    if st.button("Update"):
+
+        for r in st.session_state.reports:
+
+            if r["ID"] == selected_id:
+
+                r["Status"] = new_status
+
+        st.success("อัปเดตสถานะเรียบร้อย")
