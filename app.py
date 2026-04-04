@@ -1,12 +1,27 @@
 import streamlit as st
 import gspread
+import pandas as pd
+import io
+import uuid
+import smtplib
+
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from datetime import datetime
-import pandas as pd
-import uuid
-import io
+from email.mime.text import MIMEText
+
+# -----------------------
+# CONFIG
+# -----------------------
+
+ADMIN_PASSWORD = "1234"
+
+EMAIL_SENDER = "your_email@gmail.com"
+EMAIL_PASSWORD = "your_app_password"
+EMAIL_RECEIVER = "admin_email@gmail.com"
+
+FOLDER_ID = "YOUR_DRIVE_FOLDER_ID"
 
 # -----------------------
 # GOOGLE API CONNECT
@@ -17,186 +32,152 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-service_account_info = dict(st.secrets["gcp_service_account"])
-service_account_info["private_key"] = service_account_info["private_key"].replace("\\n", "\n")
-
-creds = Credentials.from_service_account_info(
-    service_account_info,
+creds = Credentials.from_service_account_file(
+    "credentials.json",
     scopes=scope
 )
 
-client = gspread.authorize(creds)
+gc = gspread.authorize(creds)
+sheet = gc.open("building_report").sheet1
 
-sheet = client.open("facility-report").sheet1
-
-drive_service = build(
-    "drive",
-    "v3",
-    credentials=creds
-)
+drive_service = build("drive", "v3", credentials=creds)
 
 # -----------------------
-# UPLOAD IMAGE FUNCTION
+# SEND EMAIL FUNCTION
 # -----------------------
 
-def upload_to_drive(uploaded_file):
+def send_email(name, location, problem):
 
-    file_metadata = {
-        "name": uploaded_file.name,
-        "parents": ["1FbKMmQ-MyToYHWnxRRcXEepqXhUXqT4t"]
-    }
+    msg = MIMEText(
+        f"""
+มีการแจ้งปัญหาใหม่
 
-    media = MediaIoBaseUpload(
-        io.BytesIO(uploaded_file.getvalue()),
-        mimetype=uploaded_file.type
+ผู้แจ้ง: {name}
+สถานที่: {location}
+ปัญหา: {problem}
+
+กรุณาตรวจสอบระบบ
+"""
     )
 
-    file = drive_service.files().create(
-        body=file_metadata,
-        media_body=media,
-        fields="id",
-        supportsAllDrives=True
-    ).execute()
+    msg["Subject"] = "แจ้งปัญหาใหม่ในระบบ"
+    msg["From"] = EMAIL_SENDER
+    msg["To"] = EMAIL_RECEIVER
 
-    file_id = file.get("id")
-
-    # ทำให้รูปเปิดดูได้
-    drive_service.permissions().create(
-        fileId=file_id,
-        body={"type": "anyone", "role": "reader"}
-    ).execute()
-
-    return f"https://drive.google.com/uc?id={file_id}"
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.send_message(msg)
 
 # -----------------------
-# UI
+# PAGE
 # -----------------------
 
-st.set_page_config(page_title="Facility Reporting")
-
-st.title("🏢 Facility Reporting System")
+st.title("🏢 ระบบแจ้งปัญหาภายในอาคาร")
 
 menu = st.sidebar.selectbox(
-    "Menu",
-    ["📩 แจ้งปัญหา", "🔎 ติดตามสถานะ", "👨‍💼 Admin"]
+    "เมนู",
+    ["แจ้งปัญหา", "Admin"]
 )
 
 # -----------------------
-# REPORT ISSUE
+# PAGE : REPORT
 # -----------------------
 
-if menu == "📩 แจ้งปัญหา":
+if menu == "แจ้งปัญหา":
 
     st.header("แจ้งปัญหา")
 
-    category = st.selectbox(
-        "หมวดหมู่",
-        ["ไฟฟ้า","ประปา","ความสะอาด","อุปกรณ์ชำรุด","อื่นๆ"]
+    name = st.text_input("ชื่อผู้แจ้ง")
+
+    location = st.selectbox(
+        "สถานที่",
+        ["ห้องพัก","ลิฟต์","ห้องน้ำ","ที่จอดรถ","พื้นที่ส่วนกลาง"]
     )
 
-    name = st.text_input("ชื่อ")
-    phone = st.text_input("เบอร์โทร")
-    location = st.text_input("สถานที่")
-    description = st.text_area("รายละเอียด")
+    problem = st.text_area("รายละเอียดปัญหา")
 
-    image = st.file_uploader(
-        "แนบรูป",
-        type=["jpg","png","jpeg"]
-    )
+    report_time = st.time_input("เวลาแจ้ง")
 
-    if st.button("ส่งรายงาน"):
+    image = st.file_uploader("แนบรูปภาพ")
 
-        report_id = "RTP-" + str(uuid.uuid4())[:6]
-
-        date = datetime.now().strftime("%Y-%m-%d")
-        time = datetime.now().strftime("%H:%M")
+    if st.button("แจ้งปัญหา"):
 
         image_url = ""
 
         if image is not None:
-            image_url = upload_to_drive(image)
+
+            file_id = str(uuid.uuid4())
+
+            file_metadata = {
+                "name": file_id + ".jpg",
+                "parents": [FOLDER_ID]
+            }
+
+            media = MediaIoBaseUpload(
+                io.BytesIO(image.read()),
+                mimetype="image/jpeg"
+            )
+
+            uploaded = drive_service.files().create(
+                body=file_metadata,
+                media_body=media,
+                fields="id"
+            ).execute()
+
+            image_url = f"https://drive.google.com/file/d/{uploaded['id']}/view"
 
         sheet.append_row([
-            report_id,
-            category,
+            str(uuid.uuid4()),
             name,
-            phone,
             location,
-            description,
+            problem,
             image_url,
-            "pending",
-            date,
-            time
+            "รอดำเนินการ",
+            datetime.now().strftime("%Y-%m-%d"),
+            str(report_time)
         ])
 
-        st.success("ส่งรายงานสำเร็จ")
-        st.write("รหัสติดตาม:", report_id)
+        send_email(name, location, problem)
+
+        st.success("แจ้งปัญหาสำเร็จ ระบบได้ส่งอีเมลแจ้งเตือนแล้ว")
 
 # -----------------------
-# TRACK STATUS
+# PAGE : ADMIN LOGIN
 # -----------------------
 
-elif menu == "🔎 ติดตามสถานะ":
+if menu == "Admin":
 
-    st.header("ติดตามสถานะ")
+    password = st.text_input("ใส่รหัสผ่าน", type="password")
 
-    track_id = st.text_input("กรอกรหัสติดตาม")
+    if password == ADMIN_PASSWORD:
 
-    if st.button("ค้นหา"):
+        st.success("เข้าสู่ระบบ Admin")
 
         data = sheet.get_all_records()
         df = pd.DataFrame(data)
 
-        result = df[df["report_id"] == track_id]
+        st.dataframe(df)
 
-        if len(result) > 0:
+        st.subheader("เปลี่ยนสถานะงาน")
 
-            row = result.iloc[0]
+        if not df.empty:
 
-            st.write("สถานะ:", row["status"])
-            st.write("สถานที่:", row["location"])
-            st.write("รายละเอียด:", row["description"])
-
-            if row["image_url"] != "":
-                st.image(row["image_url"])
-
-        else:
-
-            st.error("ไม่พบข้อมูล")
-
-# -----------------------
-# ADMIN
-# -----------------------
-
-elif menu == "👨‍💼 Admin":
-
-    st.header("Admin Panel")
-
-    password = st.text_input("รหัสผ่าน", type="password")
-
-    if password == "admin123":
-
-        data = sheet.get_all_records()
-
-        for i,row in enumerate(data):
-
-            st.write("---")
-
-            st.write("ID:", row["report_id"])
-            st.write("สถานที่:", row["location"])
-            st.write("รายละเอียด:", row["description"])
-
-            if row["image_url"] != "":
-                st.image(row["image_url"], width=300)
+            job_id = st.selectbox("เลือกงาน", df["ID"])
 
             status = st.selectbox(
-                "เปลี่ยนสถานะ",
-                ["pending","กำลังดำเนินการ","เสร็จแล้ว"],
-                key=i
+                "สถานะ",
+                ["รอดำเนินการ","กำลังซ่อม","ซ่อมเสร็จ"]
             )
 
-            if st.button("อัปเดต", key=f"btn{i}"):
+            if st.button("อัปเดตสถานะ"):
 
-                sheet.update_cell(i+2,8,status)
+                cell = sheet.find(job_id)
 
-                st.success("อัปเดตสถานะแล้ว")
+                row = cell.row
+
+                sheet.update_cell(row,6,status)
+
+                st.success("อัปเดตสถานะเรียบร้อย")
+
+    elif password != "":
+        st.error("รหัสผ่านไม่ถูกต้อง")
