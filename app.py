@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import random
 from datetime import datetime
+import base64
+from io import BytesIO
 
 st.set_page_config(page_title="Facility Report", page_icon="🏢", layout="wide")
 
@@ -81,7 +83,7 @@ if menu == "📢 แจ้งปัญหา":
     location = st.text_input("สถานที่")
     detail = st.text_area("รายละเอียดปัญหา")
 
-    image = st.text_input("ลิงก์รูปภาพ (เช่น Google Drive)")
+    image = st.file_uploader("📸 อัปโหลดรูปภาพ", type=["jpg", "jpeg", "png", "gif"])
 
     confirm = st.checkbox("ยืนยันการแจ้งปัญหา")
 
@@ -92,6 +94,12 @@ if menu == "📢 แจ้งปัญหา":
         else:
 
             report_id = "RP-" + str(random.randint(100000,999999))
+
+            # แปลงรูปเป็น base64
+            image_data = None
+            if image is not None:
+                image_bytes = image.read()
+                image_data = base64.b64encode(image_bytes).decode()
 
             report = {
                 "ID": report_id,
@@ -104,7 +112,8 @@ if menu == "📢 แจ้งปัญหา":
                 "Date": datetime.now().strftime("%d/%m/%Y"),
                 "Time": datetime.now().strftime("%H:%M"),
                 "Month": datetime.now().strftime("%B %Y"),
-                "Image": image
+                "Image": image_data,
+                "ImageName": image.name if image else None
             }
 
             st.session_state.reports.append(report)
@@ -140,6 +149,12 @@ elif menu == "🔎 ติดตามสถานะ":
                 st.write("สถานะ:", r["Status"])
                 st.write("วันที่:", r["Date"])
                 st.write("เวลา:", r["Time"])
+
+                # แสดงรูปภาพ
+                if r["Image"]:
+                    st.image(r["Image"], caption=r["ImageName"], width=300)
+                else:
+                    st.info("ไม่มีรูปภาพ")
 
         if not found:
             st.error("ไม่พบข้อมูล")
@@ -246,13 +261,12 @@ elif menu == "🔐 Admin":
     page_data = filtered.iloc[start:end]
 
     # -----------------------
-    # Table + View Image link
+    # Table
     # -----------------------
 
     table = page_data.copy()
-
-    table["Image"] = table["Image"].apply(
-        lambda x: f'<a href="{x}" target="_blank">View Image</a>' if x else "-"
+    table["Image"] = table["ImageName"].apply(
+        lambda x: f"✓ {x}" if x else "-"
     )
 
     st.write(
@@ -285,3 +299,28 @@ elif menu == "🔐 Admin":
                 r["Status"] = new_status
 
         st.success("อัปเดตสถานะเรียบร้อย")
+
+    # -----------------------
+    # View Report Detail
+    # -----------------------
+
+    st.subheader("📋 ดูรายละเอียดรายงาน")
+
+    view_id = st.selectbox("เลือก ID เพื่อดูรายละเอียด", df["ID"])
+
+    if st.button("แสดงรายละเอียด"):
+        for r in st.session_state.reports:
+            if r["ID"] == view_id:
+                st.write("**รหัสแจ้ง:**", r["ID"])
+                st.write("**ชื่อผู้แจ้ง:**", r["Name"])
+                st.write("**เบอร์โทร:**", r["Phone"])
+                st.write("**หมวดปัญหา:**", r["Category"])
+                st.write("**สถานที่:**", r["Location"])
+                st.write("**รายละเอียด:**", r["Detail"])
+                st.write("**สถานะ:**", r["Status"])
+                st.write("**วันที่:**", r["Date"], "เวลา:", r["Time"])
+
+                if r["Image"]:
+                    st.image(r["Image"], caption=r["ImageName"], width=400)
+                else:
+                    st.info("ไม่มีรูปภาพ")
