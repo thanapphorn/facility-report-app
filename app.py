@@ -51,8 +51,10 @@ if menu == "แจ้งปัญหา":
             "Location": location,
             "Phone": phone,
             "Detail": detail,
+            "Image": image,
             "Status": "รอดำเนินการ",
-            "Date": datetime.now().strftime("%d/%m/%Y")
+            "Date": datetime.now().strftime("%d/%m/%Y"),
+            "Time": datetime.now().strftime("%H:%M")
         }
 
         st.session_state.reports.append(report)
@@ -92,7 +94,11 @@ elif menu == "ติดตามสถานะ":
                 st.write("สถานที่ :", r["Location"])
                 st.write("สถานะ :", r["Status"])
                 st.write("วันที่แจ้ง :", r["Date"])
+                st.write("เวลา :", r["Time"])
                 st.write("รายละเอียด :", r["Detail"])
+
+                if r["Image"] is not None:
+                    st.image(r["Image"], width=300)
 
         if not found:
             st.error("ไม่พบรหัสแจ้งปัญหา")
@@ -115,9 +121,21 @@ elif menu == "Admin":
 
         st.subheader("📋 รายการแจ้งปัญหา")
 
-        st.dataframe(df)
-
         if len(df) > 0:
+
+            st.dataframe(
+                df.drop(columns=["Image"]),
+                use_container_width=True
+            )
+
+            st.subheader("🖼 รูปภาพที่แนบ")
+
+            for r in st.session_state.reports:
+
+                if r["Image"] is not None:
+
+                    st.write("ID :", r["ID"])
+                    st.image(r["Image"], width=250)
 
             st.subheader("🔧 เปลี่ยนสถานะ")
 
@@ -140,6 +158,9 @@ elif menu == "Admin":
                         r["Status"] = new_status
 
                 st.success("อัปเดตสถานะแล้ว")
+
+        else:
+            st.info("ยังไม่มีข้อมูล")
 
     elif password != "":
         st.error("รหัสผ่านไม่ถูกต้อง")
