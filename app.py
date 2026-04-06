@@ -407,10 +407,93 @@ elif menu == "🔐 Admin":
 
     st.divider()
 
-    # ── View Report Detail ──────────────────────────────────
-    st.subheader("📋 ดูรายละเอียดรายงาน")
-    view_id = st.selectbox("เลือก ID เพื่อดูรายละเอียด", df["ID"])
-    if st.button("แสดงรายละเอียด"):
+    # ── View / Edit / Delete Report ─────────────────────────
+    st.subheader("📋 ดูรายละเอียด / แก้ไข / ลบรายงาน")
+
+    # initialize edit/delete state
+    if "edit_id" not in st.session_state:
+        st.session_state.edit_id = None
+    if "confirm_delete_id" not in st.session_state:
+        st.session_state.confirm_delete_id = None
+
+    view_id = st.selectbox("เลือก ID", df["ID"], key="view_select")
+
+    col_view, col_edit, col_del = st.columns([1, 1, 1])
+    with col_view:
+        show_detail = st.button("🔍 แสดงรายละเอียด", use_container_width=True)
+    with col_edit:
+        if st.button("✏️ แก้ไขรายการ", use_container_width=True):
+            st.session_state.edit_id = view_id
+            st.session_state.confirm_delete_id = None
+    with col_del:
+        if st.button("🗑️ ลบรายการ", use_container_width=True, type="primary"):
+            st.session_state.confirm_delete_id = view_id
+            st.session_state.edit_id = None
+
+    # ── Confirm Delete ──────────────────────────────────────
+    if st.session_state.confirm_delete_id == view_id:
+        st.warning(f"⚠️ ยืนยันการลบ **{view_id}** ? การลบจะไม่สามารถกู้คืนได้")
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("✅ ยืนยันลบ", use_container_width=True, type="primary"):
+                st.session_state.reports = [
+                    r for r in st.session_state.reports if r["ID"] != view_id
+                ]
+                save_reports(st.session_state.reports)
+                st.session_state.confirm_delete_id = None
+                st.success(f"ลบ {view_id} เรียบร้อยแล้ว")
+                st.rerun()
+        with c2:
+            if st.button("❌ ยกเลิก", use_container_width=True):
+                st.session_state.confirm_delete_id = None
+                st.rerun()
+
+    # ── Edit Form ───────────────────────────────────────────
+    elif st.session_state.edit_id == view_id:
+        rec = next((r for r in st.session_state.reports if r["ID"] == view_id), None)
+        if rec:
+            st.markdown("---")
+            st.markdown(f"**แก้ไขรายการ: {view_id}**")
+            e_col1, e_col2 = st.columns(2)
+            with e_col1:
+                e_name  = st.text_input("ชื่อผู้แจ้ง", value=rec["Name"],     key="e_name")
+                e_phone = st.text_input("เบอร์โทร",    value=rec["Phone"],    key="e_phone")
+                e_loc   = st.text_input("สถานที่",      value=rec["Location"], key="e_loc")
+            with e_col2:
+                cats = ["ลิฟต์","ไฟฟ้า","ระบบแอร์","น้ำประปา","ห้องน้ำ",
+                        "ประตู/หน้าต่าง","ไฟส่องสว่าง","กล้องวงจรปิด",
+                        "อินเทอร์เน็ต","ที่จอดรถ","ความสะอาด","อื่นๆ"]
+                e_cat   = st.selectbox("หมวดปัญหา", cats,
+                                        index=cats.index(rec["Category"]) if rec["Category"] in cats else 0,
+                                        key="e_cat")
+                e_status = st.selectbox("สถานะ",
+                                         ["รอดำเนินการ","กำลังดำเนินการ","เสร็จสิ้น"],
+                                         index=["รอดำเนินการ","กำลังดำเนินการ","เสร็จสิ้น"].index(rec["Status"]),
+                                         key="e_status")
+            e_detail = st.text_area("รายละเอียด", value=rec["Detail"], key="e_detail")
+
+            s1, s2 = st.columns(2)
+            with s1:
+                if st.button("💾 บันทึกการแก้ไข", use_container_width=True, type="primary"):
+                    for r in st.session_state.reports:
+                        if r["ID"] == view_id:
+                            r["Name"]     = e_name.strip()
+                            r["Phone"]    = e_phone.strip()
+                            r["Location"] = e_loc.strip()
+                            r["Category"] = e_cat
+                            r["Status"]   = e_status
+                            r["Detail"]   = e_detail
+                    save_reports(st.session_state.reports)
+                    st.session_state.edit_id = None
+                    st.success(f"✅ บันทึกการแก้ไข {view_id} เรียบร้อย")
+                    st.rerun()
+            with s2:
+                if st.button("❌ ยกเลิก", use_container_width=True, key="cancel_edit"):
+                    st.session_state.edit_id = None
+                    st.rerun()
+
+    # ── View Detail ─────────────────────────────────────────
+    elif show_detail:
         for r in st.session_state.reports:
             if r["ID"] == view_id:
                 badge_html = status_badge(r["Status"])
@@ -434,7 +517,6 @@ elif menu == "🔐 Admin":
                         <span class="value">{badge_html}</span></div>
                 </div>
                 """, unsafe_allow_html=True)
-
                 if r["Image"]:
                     st.image(base64.b64decode(r["Image"]),
                              caption=r["ImageName"], width=420)
