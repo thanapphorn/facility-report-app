@@ -7,45 +7,6 @@ from io import BytesIO
 
 st.set_page_config(page_title="Facility Report", page_icon="🏢", layout="wide")
 
-# -----------------------
-# CSS Dashboard
-# -----------------------
-
-st.markdown("""
-<style>
-
-.dashboard{
-display:flex;
-gap:20px;
-margin-bottom:30px;
-}
-
-.card{
-padding:20px;
-border-radius:10px;
-width:200px;
-text-align:center;
-color:white;
-font-weight:bold;
-}
-
-.total{background:#6c757d;}
-.wait{background:#f0ad4e;}
-.process{background:#5bc0de;}
-.done{background:#5cb85c;}
-
-</style>
-""", unsafe_allow_html=True)
-
-# -----------------------
-# Memory Storage
-# -----------------------
-
-if "reports" not in st.session_state:
-    st.session_state.reports = []
-
-if "page" not in st.session_state:
-    st.session_state.page = 1
 
 # -----------------------
 # Menu
