@@ -3,6 +3,23 @@ import pandas as pd
 import random
 from datetime import datetime
 import base64
+import json
+import os
+
+# -----------------------
+# JSON Persistence
+# -----------------------
+DATA_FILE = "reports.json"
+
+def load_reports():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
+
+def save_reports(reports):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(reports, f, ensure_ascii=False, indent=2)
 
 st.set_page_config(page_title="Facility Report", page_icon="🏢", layout="wide")
 
@@ -114,7 +131,7 @@ st.markdown("""
 # Initialize session_state
 # -----------------------
 if "reports" not in st.session_state:
-    st.session_state.reports = []
+    st.session_state.reports = load_reports()   # โหลดจาก JSON ทุกครั้งที่เปิดแอป
 if "page" not in st.session_state:
     st.session_state.page = 1
 
@@ -183,6 +200,7 @@ if menu == "📢 แจ้งปัญหา":
                 "Image": image_data, "ImageName": image.name if image else None
             }
             st.session_state.reports.append(report)
+            save_reports(st.session_state.reports)   # บันทึกลง JSON ทันที
 
             st.success("✅ แจ้งปัญหาสำเร็จแล้ว!")
             st.markdown(f"""
@@ -382,6 +400,7 @@ elif menu == "🔐 Admin":
             for r in st.session_state.reports:
                 if r["ID"] == selected_id:
                     r["Status"] = new_status
+            save_reports(st.session_state.reports)   # บันทึกลง JSON ทันที
             st.success(f"✅ อัปเดต {selected_id} → {new_status}")
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
