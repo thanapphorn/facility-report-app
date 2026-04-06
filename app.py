@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import random
 from datetime import datetime
@@ -203,25 +204,55 @@ if menu == "📢 แจ้งปัญหา":
             save_reports(st.session_state.reports)   # บันทึกลง JSON ทันที
 
             st.success("✅ แจ้งปัญหาสำเร็จแล้ว!")
-            st.markdown(f"""
-            <div class="id-box">
-                <div class="id-label">📋 รหัสการแจ้งปัญหาของคุณ</div>
-                <div style="display:flex; align-items:center; justify-content:center; gap:14px; margin:12px 0 6px 0;">
-                    <span class="id-code" id="report-id-text">{report_id}</span>
-                    <button onclick="navigator.clipboard.writeText('{report_id}').then(()=>{{
-                        this.innerText='✅ คัดลอกแล้ว!';
-                        this.style.background='#2e7d32';
-                        setTimeout(()=>{{this.innerText='📋 คัดลอก'; this.style.background='#43a047';}}, 2000);
-                    }})"
-                    style="background:#43a047; color:white; border:none; border-radius:8px;
-                           padding:8px 18px; font-size:14px; font-weight:600;
-                           cursor:pointer; white-space:nowrap;">
-                        📋 คัดลอก
-                    </button>
+            components.html(f"""
+            <div style="
+                background: linear-gradient(135deg,#E8F5E9,#F1F8E9);
+                border: 2px solid #66BB6A;
+                border-radius: 16px;
+                padding: 28px 24px 22px;
+                text-align: center;
+                font-family: 'Segoe UI', sans-serif;
+                box-shadow: 0 4px 16px rgba(76,175,80,0.15);
+            ">
+                <div style="font-size:13px; color:#558B2F; font-weight:600; letter-spacing:1px; text-transform:uppercase; margin-bottom:10px;">
+                    📋 รหัสการแจ้งปัญหาของคุณ
                 </div>
-                <div class="id-hint">กรุณาจดรหัสนี้ไว้เพื่อติดตามสถานะในภายหลัง</div>
+                <div style="
+                    font-size:2.4rem; font-weight:900; color:#1B5E20;
+                    letter-spacing:4px; font-family:monospace;
+                    background:#fff; border-radius:10px;
+                    display:inline-block; padding:10px 32px;
+                    border:1.5px solid #A5D6A7; margin:10px 0 16px;
+                ">
+                    {report_id}
+                </div>
+                <br>
+                <button id="copyBtn" onclick="
+                    navigator.clipboard.writeText('{report_id}').then(function(){{
+                        var b = document.getElementById('copyBtn');
+                        b.innerHTML = '✅ &nbsp;คัดลอกแล้ว!';
+                        b.style.background = '#2E7D32';
+                        b.style.transform = 'scale(0.97)';
+                        setTimeout(function(){{
+                            b.innerHTML = '📋 &nbsp;คัดลอกรหัส';
+                            b.style.background = '#43A047';
+                            b.style.transform = 'scale(1)';
+                        }}, 2000);
+                    }})
+                " style="
+                    background:#43A047; color:white; border:none;
+                    border-radius:10px; padding:11px 28px;
+                    font-size:15px; font-weight:700; cursor:pointer;
+                    transition: all 0.2s ease;
+                    box-shadow: 0 2px 8px rgba(67,160,71,0.35);
+                ">
+                    📋 &nbsp;คัดลอกรหัส
+                </button>
+                <div style="color:#6a6a6a; font-size:13px; margin-top:14px;">
+                    กรุณาเก็บรหัสนี้ไว้เพื่อติดตามสถานะในภายหลัง
+                </div>
             </div>
-            """, unsafe_allow_html=True)
+            """, height=220)
 
 # =============================================================
 # PAGE 2 : TRACK
