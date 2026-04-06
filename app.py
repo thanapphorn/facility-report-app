@@ -331,30 +331,34 @@ elif menu == "🔐 Admin":
             lambda x: f"<span style='color:#2e7d32'>✓ {x}</span>" if x else "<span style='color:#aaa'>-</span>"
         )
 
+        # Build rows without indentation — prevents Markdown from treating
+        # 4-space-indented lines as a code block
         html_rows = ""
         for _, row in page_data.iterrows():
-            html_rows += f"""
-            <tr>
-                <td><b>{row["ID"]}</b></td>
-                <td>{row["Name"]}</td>
-                <td>{row["Phone"]}</td>
-                <td>{row["Category"]}</td>
-                <td>{row["Location"]}</td>
-                <td>{row["Date"]}</td>
-                <td>{row["Time"]}</td>
-                <td>{row["สถานะ"]}</td>
-                <td>{row["รูปภาพ"]}</td>
-            </tr>"""
+            html_rows += (
+                "<tr>"
+                f"<td><b>{row['ID']}</b></td>"
+                f"<td>{row['Name']}</td>"
+                f"<td>{row['Phone']}</td>"
+                f"<td>{row['Category']}</td>"
+                f"<td>{row['Location']}</td>"
+                f"<td>{row['Date']}</td>"
+                f"<td>{row['Time']}</td>"
+                f"<td>{row['สถานะ']}</td>"
+                f"<td>{row['รูปภาพ']}</td>"
+                "</tr>"
+            )
 
-        st.markdown(f"""
-        <table class="styled-table">
-            <tr>
-                <th>ID</th><th>ชื่อ</th><th>เบอร์</th><th>หมวด</th>
-                <th>สถานที่</th><th>วันที่</th><th>เวลา</th><th>สถานะ</th><th>รูปภาพ</th>
-            </tr>
-            {html_rows}
-        </table>
-        """, unsafe_allow_html=True)
+        table_html = (
+            '<table class="styled-table">'
+            "<tr>"
+            "<th>ID</th><th>ชื่อ</th><th>เบอร์</th><th>หมวด</th>"
+            "<th>สถานที่</th><th>วันที่</th><th>เวลา</th><th>สถานะ</th><th>รูปภาพ</th>"
+            "</tr>"
+            + html_rows
+            + "</table>"
+        )
+        st.markdown(table_html, unsafe_allow_html=True)
 
     st.divider()
 
