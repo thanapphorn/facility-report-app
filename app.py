@@ -203,13 +203,25 @@ if menu == "📢 แจ้งปัญหา":
             save_reports(st.session_state.reports)   # บันทึกลง JSON ทันที
 
             st.success("✅ แจ้งปัญหาสำเร็จแล้ว!")
-            st.markdown("""
+            st.markdown(f"""
             <div class="id-box">
                 <div class="id-label">📋 รหัสการแจ้งปัญหาของคุณ</div>
+                <div style="display:flex; align-items:center; justify-content:center; gap:14px; margin:12px 0 6px 0;">
+                    <span class="id-code" id="report-id-text">{report_id}</span>
+                    <button onclick="navigator.clipboard.writeText('{report_id}').then(()=>{{
+                        this.innerText='✅ คัดลอกแล้ว!';
+                        this.style.background='#2e7d32';
+                        setTimeout(()=>{{this.innerText='📋 คัดลอก'; this.style.background='#43a047';}}, 2000);
+                    }})"
+                    style="background:#43a047; color:white; border:none; border-radius:8px;
+                           padding:8px 18px; font-size:14px; font-weight:600;
+                           cursor:pointer; white-space:nowrap;">
+                        📋 คัดลอก
+                    </button>
+                </div>
                 <div class="id-hint">กรุณาจดรหัสนี้ไว้เพื่อติดตามสถานะในภายหลัง</div>
             </div>
             """, unsafe_allow_html=True)
-            st.code(report_id, language=None)
 
 # =============================================================
 # PAGE 2 : TRACK
