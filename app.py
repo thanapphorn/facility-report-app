@@ -203,13 +203,13 @@ if menu == "📢 แจ้งปัญหา":
             save_reports(st.session_state.reports)   # บันทึกลง JSON ทันที
 
             st.success("✅ แจ้งปัญหาสำเร็จแล้ว!")
-            st.markdown(f"""
+            st.markdown("""
             <div class="id-box">
                 <div class="id-label">📋 รหัสการแจ้งปัญหาของคุณ</div>
-                <div class="id-code">{report_id}</div>
                 <div class="id-hint">กรุณาจดรหัสนี้ไว้เพื่อติดตามสถานะในภายหลัง</div>
             </div>
             """, unsafe_allow_html=True)
+            st.code(report_id, language=None)
 
 # =============================================================
 # PAGE 2 : TRACK
